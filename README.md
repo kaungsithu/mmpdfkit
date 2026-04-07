@@ -9,7 +9,11 @@ Steps 1-4 completed: PDF inspection, Unicode conversion, layout reconstruction, 
 ## Install
 
 ```bash
+# Standard install (as library + CLI)
 pip install -e ".[dev]"
+
+# With OCR support
+pip install -e ".[dev,ocr]"
 
 # Set up pre-commit hooks (runs ruff linting and formatting on commit)
 pre-commit install
@@ -17,30 +21,54 @@ pre-commit install
 
 ## Usage
 
-### Convert PDF to Markdown
+### Quick Start
 
 ```bash
-# Convert a single PDF to Markdown
-python -m mmpdfkit.markdown samples/example.pdf
+# Convert PDF to Markdown (output next to input)
+mmpdfkit example.pdf          # → example.md
 
 # Convert all PDFs in a directory
-python -m mmpdfkit.markdown samples/
+mmpdfkit samples/             # → all .md files in same dir
+
+# Skip OCR for scanned documents
+mmpdfkit example.pdf --no-ocr
 
 # Custom output directory
-python -m mmpdfkit.markdown samples/ --output-dir my_output/
+mmpdfkit example.pdf --output-dir ./out/
 ```
 
-### OCR for Scanned PDFs
-
-Scanned Myanmar PDFs are automatically processed with OCR when available:
+### Inspect PDF Metadata
 
 ```bash
-# Automatic OCR (if paddleocr installed)
-python -m mmpdfkit.markdown scanned-doc.pdf
+# Extract font/text metadata as JSON
+mmpdfkit inspect example.pdf    # → example_inspection.json
 
-# Skip OCR
-python -m mmpdfkit.markdown scanned-doc.pdf --no-ocr
+# Inspect all PDFs in directory
+mmpdfkit inspect samples/
 ```
+
+### One-Shot Usage (No Install)
+
+```bash
+# Run directly with uv (fastest)
+uvx mmpdfkit example.pdf
+```
+
+### Library Usage
+
+```python
+from mmpdfkit import pdf_to_markdown, inspect_pdf
+
+# Convert PDF to markdown string
+md = pdf_to_markdown("example.pdf")
+
+# Inspect PDF metadata
+inspection = inspect_pdf("example.pdf")
+```
+
+### Advanced: OCR Configuration
+
+Scanned PDFs are automatically processed with OCR (when paddleocr is installed).
 
 **Optional configuration** at `~/.mmpdfkit/config.yaml`:
 
@@ -48,20 +76,12 @@ python -m mmpdfkit.markdown scanned-doc.pdf --no-ocr
 enable_ocr: false  # Set to false to disable OCR by default
 ```
 
-**Installation with OCR support:**
+### Developer Usage
 
 ```bash
-pip install mmpdfkit[ocr]
-```
-
-### Inspect PDF Metadata
-
-```bash
-# Inspect a single PDF
+# Run as module (for development/debugging)
+python -m mmpdfkit.markdown samples/example.pdf
 python -m mmpdfkit.pdf_inspector samples/example.pdf
-
-# Inspect all PDFs in a directory
-python -m mmpdfkit.pdf_inspector samples/
 ```
 
 ## Testing
