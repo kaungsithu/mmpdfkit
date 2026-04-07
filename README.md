@@ -64,8 +64,11 @@ mmpdfkit inspect samples/
 ### One-Shot Usage (No Install)
 
 ```bash
-# Run directly with uv (fastest)
+# Run directly with uv (fastest, no OCR)
 uvx mmpdfkit example.pdf
+
+# With OCR support for scanned PDFs
+uvx --with paddleocr mmpdfkit example.pdf
 ```
 
 ### Library Usage
