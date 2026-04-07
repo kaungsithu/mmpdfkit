@@ -1,10 +1,24 @@
 # mmpdfkit
 
-Myanmar PDF inspection and Unicode conversion toolkit.
+Convert Burmese PDFs to clean, usable Markdown and text for AI applications, data analysis, and vectorization.
 
-## Status
+## What is mmpdfkit?
 
-Steps 1-4 completed: PDF inspection, Unicode conversion, layout reconstruction, and Markdown generation. OCR support added for scanned documents.
+**mmpdfkit** solves a critical problem for anyone working with Burmese/Myanmar text: extracting usable content from PDFs with mixed encodings, legacy fonts, and scanned documents.
+
+Burmese PDFs often contain text in multiple non-Unicode encodings (Win Myanmar, Zawgyi) or are entirely scanned. This makes them unsuitable for AI model input, vectorization, or modern text processing pipelines. mmpdfkit automatically:
+
+- **Detects and converts** legacy Myanmar encodings (Win Myanmar, Zawgyi) to proper Unicode
+- **Extracts text** with layout preservation via Markdown formatting
+- **OCR scans** for documents that are image-based
+- **Preserves structure** (headings, paragraphs, spacing) during conversion
+
+### Use Cases
+
+- **AI/LLM contexts** — Clean Burmese text for prompt context or fine-tuning
+- **Vectorization** — Prepare PDFs for embedding and vector databases
+- **Text analysis** — Linguistic research on Burmese corpora
+- **Content migration** — Convert legacy Burmese digital archives to modern formats
 
 ## Install
 
@@ -94,10 +108,3 @@ pytest tests/ -v
 
 **Test fixture:** `test-pdfs/test.pdf` is a minimal 3-page fixture combining sample pages from various Myanmar PDFs (digital typeset + scanned pages) for testing both text extraction and OCR pipelines.
 
-## Roadmap
-
-1. PDF inspection (font metadata extraction) ✓ complete
-2. Zawgyi → Unicode conversion ✓ complete
-3. Layout reconstruction ✓ complete
-4. Markdown generation ✓ complete
-5. OCR for scanned documents ✓ complete
