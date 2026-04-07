@@ -30,6 +30,12 @@ env/
 # Output (generated files)
 output/*
 !output/.gitkeep
+test_output*/
+*.md.bak
+
+# Large test assets (PDFs go in test-pdfs/ but are not tracked)
+test-pdfs/*.pdf
+test-pdfs/*.md
 
 # OS
 .DS_Store
