@@ -10,12 +10,21 @@ from mmpdfkit.pdf_inspector import inspect_and_save
 
 def main() -> None:
     """Main CLI entry point with subcommands for convert and inspect."""
+    # Pre-process args: if first arg looks like a path, prepend "convert"
+    args_to_parse = sys.argv[1:]
+    if args_to_parse and not args_to_parse[0].startswith("-"):
+        # Check if it looks like a file path or subcommand
+        first_arg = args_to_parse[0]
+        if first_arg not in ("convert", "inspect"):
+            # Treat as implicit convert
+            args_to_parse = ["convert", *args_to_parse]
+
     parser = argparse.ArgumentParser(
         prog="mmpdfkit",
         description="Myanmar PDF inspection, Unicode conversion, and OCR toolkit",
     )
 
-    subparsers = parser.add_subparsers(dest="command", help="Command to run")
+    subparsers = parser.add_subparsers(dest="command", help="Command to run", required=False)
 
     # Convert command (default if no subcommand)
     convert_parser = subparsers.add_parser(
@@ -32,19 +41,13 @@ def main() -> None:
     )
     _add_inspect_args(inspect_parser)
 
-    # Handle positional path argument (convert is default if no subcommand)
-    # This allows: mmpdfkit file.pdf (without explicit "convert")
-    args = parser.parse_args()
+    # Parse the processed args
+    args = parser.parse_args(args_to_parse)
 
-    # If no subcommand, treat first arg as path for convert
+    # Validate that a command was provided
     if args.command is None:
-        if len(sys.argv) > 1 and not sys.argv[1].startswith("-"):
-            # Re-parse with convert parser to capture convert-specific args
-            args = convert_parser.parse_args(sys.argv[1:])
-            args.command = "convert"
-        else:
-            parser.print_help()
-            sys.exit(1)
+        parser.print_help()
+        sys.exit(1)
 
     # Route to appropriate command
     if args.command == "convert":
