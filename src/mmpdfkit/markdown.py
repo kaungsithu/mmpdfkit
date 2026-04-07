@@ -91,17 +91,17 @@ def pdf_to_markdown(
             try:
                 from mmpdfkit.ocr import extract_and_ocr
 
-                ocr_spans = extract_and_ocr(pdf_path, enable_ocr=True)
-                # Add OCR spans to inspection
+                ocr_pages = extract_and_ocr(pdf_path, enable_ocr=True)
+                # Add OCR spans to the matching page only
                 for page_idx, page in enumerate(inspection["pages"]):
-                    if page_idx < len(inspection["pages"]):
-                        page["spans"].extend(ocr_spans)
+                    if page_idx < len(ocr_pages):
+                        page["spans"].extend(ocr_pages[page_idx])
             except ImportError as e:
                 # OCR dependencies missing — proceed without it
                 import sys
 
                 print(f"Warning: {e}", file=sys.stderr)
-                pass
+                print("Note: PDF has mostly image content, but OCR unavailable", file=sys.stderr)
             except ValueError:
                 # OCR disabled by user — proceed without it
                 pass
