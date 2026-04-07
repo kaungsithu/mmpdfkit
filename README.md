@@ -22,33 +22,63 @@ Burmese PDFs often contain text in multiple non-Unicode encodings (Win Myanmar, 
 
 ## Install
 
+### As a CLI Tool (Recommended)
+
+**With full OCR support for scanned PDFs:**
 ```bash
-# Standard install (as library + CLI)
-pip install -e ".[dev]"
+uv tool install "mmpdfkit[ocr]"
+```
 
-# With OCR support
+**Without OCR (faster, for digital PDFs only):**
+```bash
+uv tool install mmpdfkit
+```
+
+Then use the `mmpdfkit` command:
+```bash
+mmpdfkit example.pdf              # Convert to Markdown
+mmpdfkit inspect example.pdf      # Extract metadata as JSON
+```
+
+### As a Python Library
+
+**Standard install:**
+```bash
+pip install mmpdfkit
+```
+
+**With OCR support:**
+```bash
+pip install "mmpdfkit[ocr]"
+```
+
+### For Development
+
+```bash
+git clone https://github.com/kaungsithu/mmpdfkit.git
+cd mmpdfkit
 pip install -e ".[dev,ocr]"
-
-# Set up pre-commit hooks (runs ruff linting and formatting on commit)
 pre-commit install
 ```
 
 ## Usage
 
-### Quick Start
+### CLI Examples
+
+After installing with `uv tool install "mmpdfkit[ocr]"`:
 
 ```bash
 # Convert PDF to Markdown (output next to input)
-mmpdfkit example.pdf          # → example.md
+mmpdfkit example.pdf                        # → example.md
 
 # Convert all PDFs in a directory
-mmpdfkit samples/             # → all .md files in same dir
+mmpdfkit samples/                           # → all .md files in same dir
 
-# Skip OCR for scanned documents
-mmpdfkit example.pdf --no-ocr
-
-# Custom output directory
+# Save to custom output directory
 mmpdfkit example.pdf --output-dir ./out/
+
+# Disable OCR for faster processing (digital PDFs)
+mmpdfkit example.pdf --no-ocr
 ```
 
 ### Inspect PDF Metadata
@@ -61,15 +91,19 @@ mmpdfkit inspect example.pdf    # → example_inspection.json
 mmpdfkit inspect samples/
 ```
 
-### One-Shot Usage (No Install)
+### One-Shot Usage (No Install Required)
+
+Use `uvx` to run mmpdfkit without installing it globally:
 
 ```bash
-# Run directly with uv (fastest, no OCR)
+# Without OCR (fastest)
 uvx mmpdfkit example.pdf
 
-# With OCR support for scanned PDFs
+# With OCR for scanned PDFs
 uvx --with paddleocr mmpdfkit example.pdf
 ```
+
+> **Tip:** For repeated use, `uv tool install` is faster than `uvx` since it caches the installation.
 
 ### Library Usage
 
@@ -83,22 +117,28 @@ md = pdf_to_markdown("example.pdf")
 inspection = inspect_pdf("example.pdf")
 ```
 
-### Advanced: OCR Configuration
+### OCR Support
 
-Scanned PDFs are automatically processed with OCR (when paddleocr is installed).
+When installed with `[ocr]` extra, scanned PDFs are automatically processed with optical character recognition.
 
-**Optional configuration** at `~/.mmpdfkit/config.yaml`:
-
+**Disable OCR by default** (optional configuration at `~/.mmpdfkit/config.yaml`):
 ```yaml
-enable_ocr: false  # Set to false to disable OCR by default
+enable_ocr: false
 ```
 
-### Developer Usage
+Or use `--no-ocr` flag for individual conversions:
+```bash
+mmpdfkit scanned.pdf --no-ocr
+```
+
+### Running from Source (Development)
+
+After cloning and installing with `pip install -e ".[dev,ocr]"`:
 
 ```bash
-# Run as module (for development/debugging)
-python -m mmpdfkit.markdown samples/example.pdf
-python -m mmpdfkit.pdf_inspector samples/example.pdf
+# CLI (same as installed version)
+mmpdfkit example.pdf
+mmpdfkit inspect example.pdf
 ```
 
 ## Testing
