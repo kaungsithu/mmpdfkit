@@ -113,10 +113,16 @@ def _extract_from_doc(doc: fitz.Document, source_name: str) -> dict:
         )
         pages[-1]["spans"] = page_spans
 
+    # Detect scanned PDFs: check if average spans per page is very low
+    # If total spans is very small OR average spans per page < 1.5, likely scanned
+    # (accounts for PDFs with page headers/footers but mostly image content)
+    avg_spans_per_page = total_spans / doc.page_count if doc.page_count > 0 else 0
+    is_scanned = total_spans < 10 or avg_spans_per_page < 1.5
+
     return {
         "source_file": source_name,
         "total_pages": doc.page_count,
-        "is_scanned": total_spans < 10,
+        "is_scanned": is_scanned,
         "total_spans": total_spans,
         "fonts_found": fonts_found,
         "spans_by_encoding": spans_by_encoding,
