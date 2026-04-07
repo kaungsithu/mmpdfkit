@@ -1,0 +1,38 @@
+# Working directories (intermediate plans, scratchpad, design docs)
+agent/
+docs/
+
+# IDE / Development Tools
+.claude/
+.serena/
+.remember/
+.pytest_cache/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Output (generated files)
+output/*
+!output/.gitkeep
+
+# OS
+.DS_Store
+
+# pyenv
+.python-version
