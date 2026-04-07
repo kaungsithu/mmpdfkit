@@ -5,15 +5,32 @@ build-backend = "hatchling.build"
 [project]
 name = "mmpdfkit"
 version = "0.1.0"
-description = "Myanmar PDF inspection and Unicode conversion toolkit"
+description = "Convert Burmese PDFs to clean, usable Markdown and text for AI applications, data analysis, and vectorization"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
+authors = [{ name = "Kaung Sithu", email = "kaungsithu@example.com" }]
+keywords = ["burmese", "myanmar", "pdf", "text-extraction", "unicode", "zawgyi", "ocr"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
 dependencies = [
     "pymupdf>=1.23.0",
     "python-myanmar>=1.9.0",
     "myanmartools>=1.2.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/kaungsithu/mmpdfkit"
+Repository = "https://github.com/kaungsithu/mmpdfkit.git"
+Issues = "https://github.com/kaungsithu/mmpdfkit/issues"
 
 [project.scripts]
 mmpdfkit = "mmpdfkit.cli:main"
