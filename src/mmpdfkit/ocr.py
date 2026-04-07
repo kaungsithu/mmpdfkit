@@ -46,9 +46,18 @@ def extract_and_ocr(pdf_path: Path, enable_ocr: bool = True) -> List[Dict[str, A
     # Myanmar language may not always be available; fallback to default
     try:
         ocr = PaddleOCR(lang="mm")
+    except ModuleNotFoundError:
+        raise ImportError(
+            "PaddleOCR dependencies incomplete. Try: pip install --upgrade paddleocr paddlepaddle-gpu"
+        )
     except ValueError:
         # Myanmar language not available; use default (English + multilingual)
-        ocr = PaddleOCR()
+        try:
+            ocr = PaddleOCR()
+        except ModuleNotFoundError:
+            raise ImportError(
+                "PaddleOCR dependencies incomplete. Try: pip install --upgrade paddleocr paddlepaddle-gpu"
+            )
 
     doc = fitz.open(str(pdf_path))
     all_spans: List[Dict[str, Any]] = []

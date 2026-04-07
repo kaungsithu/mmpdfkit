@@ -96,8 +96,14 @@ def pdf_to_markdown(
                 for page_idx, page in enumerate(inspection["pages"]):
                     if page_idx < len(inspection["pages"]):
                         page["spans"].extend(ocr_spans)
-            except (ImportError, ValueError):
-                # OCR not available or disabled — proceed without it
+            except ImportError as e:
+                # OCR dependencies missing — proceed without it
+                import sys
+
+                print(f"Warning: {e}", file=sys.stderr)
+                pass
+            except ValueError:
+                # OCR disabled by user — proceed without it
                 pass
 
         converted = convert_inspection(inspection)
