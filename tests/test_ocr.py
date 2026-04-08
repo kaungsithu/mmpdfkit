@@ -1,4 +1,5 @@
 """Tests for OCR module."""
+import tempfile
 from pathlib import Path
 
 import fitz
@@ -17,51 +18,65 @@ def test_extract_and_ocr_disabled():
     """extract_and_ocr raises ValueError if enable_ocr=False."""
     pdf_bytes = make_blank_pdf_bytes()
 
-    with pytest.raises(ValueError, match="OCR disabled"):
-        # Create temp file
-        import tempfile
+    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as f:
+        f.write(pdf_bytes)
+        temp_path = Path(f.name)
 
-        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as f:
-            f.write(pdf_bytes)
-            temp_path = f.name
-
-        try:
-            extract_and_ocr(Path(temp_path), enable_ocr=False)
-        finally:
-            Path(temp_path).unlink()
-
-
-def test_extract_and_ocr_missing_paddleocr():
-    """extract_and_ocr raises ImportError if paddleocr not installed."""
-    pytest.importorskip("paddleocr")  # Skip if not installed (OK for this test env)
-    # This test is a placeholder — actual test will run if paddleocr is available
-
-
-def test_extract_and_ocr_returns_spans():
-    """extract_and_ocr returns list of span dicts."""
     try:
-        import paddle  # noqa
+        with pytest.raises(ValueError, match="OCR disabled"):
+            extract_and_ocr(temp_path, enable_ocr=False)
+    finally:
+        temp_path.unlink()
 
-        pytest.importorskip("paddleocr")
-    except ImportError:
-        pytest.skip("paddlepaddle not available (OCR tests require full setup)")
+
+def test_extract_and_ocr_missing_pytesseract(monkeypatch):
+    """extract_and_ocr raises ImportError if pytesseract is not installed."""
+    import builtins
+
+    real_import = builtins.__import__
+
+    def mock_import(name, *args, **kwargs):
+        if name == "pytesseract":
+            raise ImportError("No module named 'pytesseract'")
+        return real_import(name, *args, **kwargs)
 
     pdf_bytes = make_blank_pdf_bytes()
 
-    import tempfile
+    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as f:
+        f.write(pdf_bytes)
+        temp_path = Path(f.name)
+
+    try:
+        monkeypatch.setattr(builtins, "__import__", mock_import)
+        with pytest.raises(ImportError, match="pytesseract"):
+            extract_and_ocr(temp_path, enable_ocr=True)
+    finally:
+        temp_path.unlink()
+
+
+def test_extract_and_ocr_returns_spans():
+    """extract_and_ocr returns list of span dicts (requires tesseract installed)."""
+    pytest.importorskip("pytesseract")
+
+    pdf_bytes = make_blank_pdf_bytes()
 
     with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as f:
         f.write(pdf_bytes)
-        temp_path = f.name
+        temp_path = Path(f.name)
 
     try:
-        result = extract_and_ocr(Path(temp_path), enable_ocr=True)
+        result = extract_and_ocr(temp_path, enable_ocr=True)
 
-        # Should return a list
+        # Should return a list of per-page span lists
         assert isinstance(result, list)
+        assert len(result) == 1  # one page in blank PDF
 
-        # Each item should be a span dict
-        for span in result:
+        # Each item is a list of spans for that page
+        page_spans = result[0]
+        assert isinstance(page_spans, list)
+
+        # Each span should be a valid span dict
+        for span in page_spans:
             assert isinstance(span, dict)
             assert "text" in span
             assert "font_name" in span
@@ -70,5 +85,6 @@ def test_extract_and_ocr_returns_spans():
             assert "is_bold" in span
             assert "is_italic" in span
             assert "bbox" in span
+            assert len(span["bbox"]) == 4
     finally:
-        Path(temp_path).unlink()
+        temp_path.unlink()
