@@ -52,7 +52,7 @@ def extract_and_ocr(pdf_path: Path, enable_ocr: bool = True) -> List[Dict[str, A
         available = pytesseract.get_languages()
         lang = "mya+eng" if "mya" in available else "eng"
     except Exception:
-        lang = "mya+eng"
+        lang = "eng"
 
     doc = fitz.open(str(pdf_path))
     # Returns a list of per-page span lists: [[page0_spans], [page1_spans], ...]

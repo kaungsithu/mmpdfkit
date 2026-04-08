@@ -289,9 +289,8 @@ def install_ocr(args: argparse.Namespace) -> None:
         print(f"→ {step['desc']}")
         print(f"  $ {' '.join(step['cmd'])}\n")
         try:
-            result = subprocess.run(step["cmd"], check=True)
-            if result.returncode == 0:
-                print("  ✓ Done\n")
+            subprocess.run(step["cmd"], check=True)
+            print("  ✓ Done\n")
         except subprocess.CalledProcessError as e:
             print(f"  ✗ Failed (exit code {e.returncode})", file=sys.stderr)
             print("  Try running the command manually.", file=sys.stderr)

@@ -11,6 +11,7 @@ CLI usage:
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 from mmpdfkit.layout import Paragraph, reconstruct_page
@@ -97,8 +98,6 @@ def pdf_to_markdown(
                     if page_idx < len(ocr_pages):
                         page["spans"].extend(ocr_pages[page_idx])
             except ImportError as e:
-                import sys
-
                 print(f"Warning: {e}", file=sys.stderr)
                 print(
                     "  This PDF contains scanned pages. Run: mmpdfkit install-ocr",
