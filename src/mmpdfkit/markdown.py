@@ -97,11 +97,13 @@ def pdf_to_markdown(
                     if page_idx < len(ocr_pages):
                         page["spans"].extend(ocr_pages[page_idx])
             except ImportError as e:
-                # OCR dependencies missing — proceed without it
                 import sys
 
                 print(f"Warning: {e}", file=sys.stderr)
-                print("Note: PDF has mostly image content, but OCR unavailable", file=sys.stderr)
+                print(
+                    "  This PDF contains scanned pages. Run: mmpdfkit install-ocr",
+                    file=sys.stderr,
+                )
             except ValueError:
                 # OCR disabled by user — proceed without it
                 pass
