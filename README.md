@@ -100,7 +100,7 @@ Use `uvx` to run mmpdfkit without installing it globally:
 uvx mmpdfkit example.pdf
 
 # With OCR for scanned PDFs
-uvx --with paddleocr mmpdfkit example.pdf
+uvx "mmpdfkit[ocr]" example.pdf
 ```
 
 > **Tip:** For repeated use, `uv tool install` is faster than `uvx` since it caches the installation.

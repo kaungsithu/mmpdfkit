@@ -39,10 +39,10 @@ NUM_CLASSES: int = len(_VOCAB)           # = 272
 # ---------------------------------------------------------------------------
 # Model hosted at: https://huggingface.co/ksithu/myanmar-crnn-ocr
 _MODEL_URL = (
-    "https://huggingface.co/ksithu/myanmar-crnn-ocr/resolve/main/mmpdfkit_crnn_int8.onnx"
+    "https://huggingface.co/ksithu/myanmar-crnn-ocr/resolve/main/myanmar-crnn-ocr.onnx"
 )
 _CACHE_DIR = Path.home() / ".cache" / "mmpdfkit"
-_MODEL_FILENAME = "mmpdfkit_crnn_int8.onnx"
+_MODEL_FILENAME = "myanmar-crnn-ocr.onnx"
 
 
 def _model_path() -> Path:

@@ -15,6 +15,7 @@ def extract_line_images(
     page_gray: np.ndarray,
     pad: int = 4,
     min_line_height: int = 8,
+    max_line_height: int = 200,
 ) -> list[tuple[int, int, np.ndarray]]:
     """
     Detect and crop text lines from a grayscale page image.
@@ -24,6 +25,11 @@ def extract_line_images(
         pad: Pixels to add above/below each detected line band.
         min_line_height: Minimum pixel height to count as a line (filters
                          hairlines and horizontal rules).
+        max_line_height: Maximum pixel height to count as a line. Bands taller
+                         than this are almost certainly not a single text line
+                         (e.g. pages with full-height borders confusing the
+                         projection). Skipping them avoids passing a whole-page
+                         crop to the CRNN and getting garbage output.
 
     Returns:
         List of (y_top, y_bottom, crop) tuples where crop is a grayscale
@@ -65,11 +71,13 @@ def extract_line_images(
     if start is not None:
         bands.append((start, len(active)))
 
-    # 6. Crop with padding, skip noise
+    # 6. Crop with padding, skip noise and oversized bands
     h, w = page_gray.shape
     crops = []
     for y0, y1 in bands:
         if (y1 - y0) < min_line_height:
+            continue
+        if (y1 - y0) > max_line_height:
             continue
         y0p = max(0, y0 - pad)
         y1p = min(h, y1 + pad)

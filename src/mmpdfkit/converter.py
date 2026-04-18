@@ -33,6 +33,23 @@ _ENCODING_MAP: dict[str, str] = {
 }
 
 
+def _looks_like_win_myanmar(text: str) -> bool:
+    """Return True if text is likely WinMyanmar/WinInnwa encoded.
+
+    Win Myanmar fonts map Myanmar glyphs to Latin-1 Supplement codepoints
+    (U+0080–U+00FF). If the majority of non-whitespace characters fall in
+    that range (and none are actual Myanmar Unicode), it's WinMyanmar.
+    """
+    chars = [c for c in text if not c.isspace()]
+    if len(chars) < 3:
+        return False
+    has_myanmar_unicode = any(0x1000 <= ord(c) <= 0x109F for c in chars)
+    if has_myanmar_unicode:
+        return False
+    win_range = sum(1 for c in chars if 0x80 <= ord(c) <= 0xFF)
+    return win_range / len(chars) > 0.7
+
+
 def convert_span(text: str, encoding_type: str) -> tuple[str, bool]:
     """
     Convert a single text span to Unicode Myanmar.
@@ -51,7 +68,14 @@ def convert_span(text: str, encoding_type: str) -> tuple[str, bool]:
         return text, True  # already Unicode, pass through
 
     if mm_encoding is None:
-        # Unknown encoding — return as-is, flag as unconverted
+        # Unknown font name — fall back to content-based detection.
+        # WinMyanmar fonts are sometimes embedded with obfuscated names (e.g.
+        # "ZTR489.tmp,Bold") that don't match any registry pattern.
+        if _looks_like_win_myanmar(text):
+            try:
+                return mm_convert(text, "wininnwa", "unicode"), True
+            except Exception:
+                pass
         return text, False
 
     try:
