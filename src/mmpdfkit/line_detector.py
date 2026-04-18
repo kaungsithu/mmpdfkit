@@ -42,8 +42,6 @@ def extract_line_images(
 
     # 2. Deskew — corrects up to ~5° rotation cheaply
     bw = _deskew(bw, page_gray)
-    if bw is None:
-        bw = cv2.threshold(page_gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1]
 
     # 3. Horizontal dilation — merges characters within a line so the
     #    projection sees a solid band, even with touching Myanmar diacritics
@@ -80,12 +78,9 @@ def extract_line_images(
     return crops
 
 
-def _deskew(bw: np.ndarray, page_gray: np.ndarray) -> np.ndarray | None:
+def _deskew(bw: np.ndarray, page_gray: np.ndarray) -> np.ndarray:
     """Correct small rotation in bw using minAreaRect on dark pixels."""
-    try:
-        import cv2
-    except ImportError:
-        return None
+    import cv2
 
     coords = np.column_stack(np.where(bw > 0))
     if len(coords) < 100:

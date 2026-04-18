@@ -50,6 +50,11 @@ def _model_path() -> Path:
     return _CACHE_DIR / _MODEL_FILENAME
 
 
+def model_is_cached() -> bool:
+    """Return True if the CRNN ONNX model has already been downloaded."""
+    return _model_path().exists()
+
+
 def _ensure_model() -> Path:
     """Download model to cache if not already present."""
     path = _model_path()
@@ -117,17 +122,17 @@ def _get_session():
 
 def _run_ocr_on_crop(crop_gray, session) -> str:
     """Run CRNN inference on a single grayscale line crop (H, W) uint8."""
+    import cv2
     import numpy as np
-    from PIL import Image
 
-    img = Image.fromarray(crop_gray)
+    h, w = crop_gray.shape
     # Normalise to 32px tall, double width — matches training preprocessing
-    if img.height != 32:
-        new_w = max(1, round(img.width * 32 / img.height))
-        img = img.resize((new_w, 32), Image.LANCZOS)
-    img = img.resize((img.width * 2, 32), Image.LANCZOS)
+    if h != 32:
+        new_w = max(1, round(w * 32 / h))
+        crop_gray = cv2.resize(crop_gray, (new_w, 32), interpolation=cv2.INTER_LANCZOS4)
+    crop_gray = cv2.resize(crop_gray, (crop_gray.shape[1] * 2, 32), interpolation=cv2.INTER_LANCZOS4)
 
-    arr = np.array(img, dtype=np.float32) / 255.0
+    arr = crop_gray.astype(np.float32) / 255.0
     x = arr[np.newaxis, np.newaxis, :, :]  # (1, 1, 32, W)
 
     logits = session.run(["output"], {"input": x})[0]  # (1, W', 272)
@@ -139,14 +144,13 @@ def _run_ocr_on_crop(crop_gray, session) -> str:
 # Public API
 # ---------------------------------------------------------------------------
 
-def ocr_page_spans(page_gray, page_width: float, page_height: float) -> list[dict]:
+def ocr_page_spans(page_gray, page_width: float) -> list[dict]:
     """
     Run OCR on a single grayscale page image (already rendered, uint8 numpy array).
 
     Args:
         page_gray: Grayscale page image (H, W) uint8.
-        page_width: PDF page width in points (used for bbox x1).
-        page_height: PDF page height in points (unused but kept for symmetry).
+        page_width: PDF page width in points (used to scale bbox coordinates).
 
     Returns:
         List of span dicts matching pdf_inspector output format.
@@ -228,7 +232,7 @@ def extract_and_ocr(
             page_gray = np.frombuffer(pix.samples, dtype=np.uint8).reshape(
                 pix.height, pix.width
             )
-            pages_spans.append(ocr_page_spans(page_gray, page.rect.width, page.rect.height))
+            pages_spans.append(ocr_page_spans(page_gray, page.rect.width))
     finally:
         doc.close()
 

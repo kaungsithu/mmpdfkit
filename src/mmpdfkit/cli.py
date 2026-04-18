@@ -126,10 +126,9 @@ def _ocr_deps_installed() -> bool:
 
 
 def _model_cached() -> bool:
-    """Return True if the CRNN ONNX model has already been downloaded."""
-    from mmpdfkit.ocr import _model_path
+    from mmpdfkit.ocr import model_is_cached
 
-    return _model_path().exists()
+    return model_is_cached()
 
 
 def install_ocr(args: argparse.Namespace) -> None:

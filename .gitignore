@@ -27,14 +27,16 @@ env/
 .idea/
 *.swp
 
-# Output (generated files)
-output/*
-!output/.gitkeep
+# Generated output
 test_output*/
 *.md.bak
 
-# Large test assets (PDFs go in test-pdfs/ but are not tracked)
+# OCR training code lives in a separate private repo
+ocr-training-code/
+
+# test-pdfs: only test.pdf is tracked; large PDFs are not
 test-pdfs/*.pdf
+!test-pdfs/test.pdf
 test-pdfs/*.md
 
 # OS

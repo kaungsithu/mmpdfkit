@@ -47,19 +47,6 @@ def document_to_markdown(pages_paragraphs: list[list[Paragraph]]) -> str:
     return "\n\n---\n\n".join(page_texts)
 
 
-def _render_page_png(pdf_path: Path, page_index: int, output_path: Path) -> None:
-    """Render a PDF page to a PNG file at 150 DPI (1× scale)."""
-    import fitz
-
-    doc = fitz.open(str(pdf_path))
-    try:
-        page = doc[page_index]
-        pix = page.get_pixmap(matrix=fitz.Matrix(1.5, 1.5))
-        output_path.write_bytes(pix.tobytes("png"))
-    finally:
-        doc.close()
-
-
 def pdf_to_markdown(
     pdf_path_or_inspection: Path | dict,
     converted: dict | None = None,
@@ -72,7 +59,8 @@ def pdf_to_markdown(
 
     For scanned PDFs (is_scanned: true) or pages with page_type "image":
     - Runs OCR to extract text (unless enable_ocr=False)
-    - If include_images=True, also saves a PNG and embeds an image tag
+    - If include_images=True, saves a PNG and embeds an image tag for pages
+      that remain empty after OCR
 
     For digital PDFs: proceeds normally.
 
@@ -86,6 +74,8 @@ def pdf_to_markdown(
     Returns:
         Markdown string of the entire document
     """
+    import fitz
+
     from mmpdfkit.converter import convert_inspection
     from mmpdfkit.pdf_inspector import inspect_pdf
 
@@ -93,6 +83,7 @@ def pdf_to_markdown(
     if isinstance(pdf_path_or_inspection, dict):
         inspection = pdf_path_or_inspection
         pdf_path = None
+        doc = None
         converted = converted or convert_inspection(inspection)
     else:
         pdf_path = Path(pdf_path_or_inspection)
@@ -103,58 +94,64 @@ def pdf_to_markdown(
         config = load_config()
         should_ocr = enable_ocr and config.get("enable_ocr", True)
 
-        if should_ocr:
-            _run_ocr_for_image_pages(inspection, pdf_path)
+        # Open document once; reuse for OCR rendering and PNG export.
+        doc = fitz.open(str(pdf_path))
+        try:
+            if should_ocr:
+                _run_ocr_for_image_pages(inspection, doc)
+            converted = convert_inspection(inspection)
+        finally:
+            # Keep doc open through the page loop below; close after.
+            pass
 
-        converted = convert_inspection(inspection)
-
-    # Build per-page Markdown, handling image pages specially
+    # Build per-page Markdown, handling image pages specially.
+    # images_dir created once if needed (not inside the loop).
+    images_dir: Path | None = None
     page_parts: list[str] = []
-    for page_idx, page in enumerate(converted["pages"]):
-        page_num = page["page_number"]
-        page_type = page.get("page_type", "typed")
 
-        if page_type == "blank":
-            continue
+    try:
+        for page_idx, page in enumerate(converted["pages"]):
+            page_num = page["page_number"]
+            page_type = page.get("page_type", "typed")
 
-        if page_type == "image" and not page["spans"]:
-            # Image page with no OCR text — either embed PNG or emit placeholder
-            if include_images and output_dir is not None and pdf_path is not None:
-                images_dir = output_dir / "images"
-                images_dir.mkdir(parents=True, exist_ok=True)
-                img_filename = f"page_{page_num:03d}.png"
-                _render_page_png(pdf_path, page_idx, images_dir / img_filename)
-                page_parts.append(f"![Page {page_num}](images/{img_filename})")
-            else:
-                # No OCR result and images not requested — skip silently
-                pass
-            continue
+            if page_type == "blank":
+                continue
 
-        paragraphs = reconstruct_page(page)
-        text = page_to_markdown(paragraphs)
-        if text.strip():
-            page_parts.append(text)
+            if page_type == "image" and not page["spans"]:
+                if include_images and output_dir is not None and doc is not None:
+                    if images_dir is None:
+                        images_dir = output_dir / "images"
+                        images_dir.mkdir(parents=True, exist_ok=True)
+                    img_filename = f"page_{page_num:03d}.png"
+                    pix = doc[page_idx].get_pixmap(matrix=fitz.Matrix(1.5, 1.5))
+                    (images_dir / img_filename).write_bytes(pix.tobytes("png"))
+                    page_parts.append(f"![Page {page_num}](images/{img_filename})")
+                continue
+
+            paragraphs = reconstruct_page(page)
+            text = page_to_markdown(paragraphs)
+            if text.strip():
+                page_parts.append(text)
+    finally:
+        if doc is not None:
+            doc.close()
 
     return "\n\n---\n\n".join(page_parts)
 
 
-def _run_ocr_for_image_pages(inspection: dict, pdf_path: Path) -> None:
+def _run_ocr_for_image_pages(inspection: dict, doc) -> None:
     """
     Run CRNN OCR on every page classified as "image" and inject spans in-place.
 
+    Accepts an already-open fitz.Document to avoid re-opening the same PDF.
     Modifies inspection["pages"] directly. Silently skips if OCR deps are missing.
     """
-    import fitz
-
     image_pages = [
         (idx, p) for idx, p in enumerate(inspection["pages"])
         if p.get("page_type") == "image"
     ]
     if not image_pages:
-        # Also check the old is_scanned path (typed PDFs with low span count)
-        if not inspection.get("is_scanned"):
-            return
-        image_pages = [(idx, p) for idx, p in enumerate(inspection["pages"])]
+        return
 
     try:
         import numpy as np
@@ -168,21 +165,18 @@ def _run_ocr_for_image_pages(inspection: dict, pdf_path: Path) -> None:
         )
         return
 
-    doc = fitz.open(str(pdf_path))
-    try:
-        for page_idx, page in image_pages:
-            fitz_page = doc[page_idx]
-            pix = fitz_page.get_pixmap(matrix=fitz.Matrix(2, 2), colorspace=fitz.csGRAY)
-            page_gray = np.frombuffer(pix.samples, dtype=np.uint8).reshape(
-                pix.height, pix.width
-            )
-            spans = ocr_page_spans(page_gray, fitz_page.rect.width, fitz_page.rect.height)
-            page["spans"].extend(spans)
-            if spans:
-                # Upgrade page_type so reconstruct_page treats it as text
-                page["page_type"] = "scanned_text"
-    finally:
-        doc.close()
+    import fitz
+
+    for page_idx, page in image_pages:
+        fitz_page = doc[page_idx]
+        pix = fitz_page.get_pixmap(matrix=fitz.Matrix(2, 2), colorspace=fitz.csGRAY)
+        page_gray = np.frombuffer(pix.samples, dtype=np.uint8).reshape(
+            pix.height, pix.width
+        )
+        spans = ocr_page_spans(page_gray, fitz_page.rect.width)
+        page["spans"].extend(spans)
+        if spans:
+            page["page_type"] = "scanned_text"
 
 
 def save_markdown(markdown: str, output_path: Path) -> None:
@@ -225,7 +219,6 @@ def main() -> None:
 
     for pdf in pdfs:
         print(f"Converting {pdf.name} ...")
-        # Per-PDF sub-directory: output_dir/{stem}/{stem}.md
         pdf_out_dir = output_dir / pdf.stem
         pdf_out_dir.mkdir(parents=True, exist_ok=True)
         md = pdf_to_markdown(
