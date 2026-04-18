@@ -60,14 +60,18 @@ def _ensure_model() -> Path:
     if path.exists():
         return path
 
+    from mmpdfkit.config import load_config
+    config = load_config()
+    url = config.get("ocr_model_url") or _MODEL_URL
+
     _CACHE_DIR.mkdir(parents=True, exist_ok=True)
     print(f"Downloading Myanmar OCR model to {path} ...", file=sys.stderr)
     try:
-        urllib.request.urlretrieve(_MODEL_URL, path)
+        urllib.request.urlretrieve(url, path)
     except Exception as e:
         path.unlink(missing_ok=True)
         raise RuntimeError(
-            f"Failed to download OCR model from {_MODEL_URL}: {e}\n"
+            f"Failed to download OCR model from {url}: {e}\n"
             "Check your internet connection, or download manually and place at:\n"
             f"  {path}"
         ) from e
