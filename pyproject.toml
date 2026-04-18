@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mmpdfkit"
-version = "0.1.2"
+version = "0.2.0"
 description = "Convert Burmese PDFs to clean, usable Markdown and text for AI applications, data analysis, and vectorization"
 readme = "README.md"
 requires-python = ">=3.10"
