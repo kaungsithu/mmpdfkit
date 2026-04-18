@@ -5,6 +5,7 @@ from typing import Any, Dict
 
 DEFAULT_CONFIG = {
     "enable_ocr": True,
+    "ocr_model_url": None,  # None means use the built-in default URL
 }
 
 

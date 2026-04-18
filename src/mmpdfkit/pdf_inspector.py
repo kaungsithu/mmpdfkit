@@ -32,6 +32,7 @@ class PageInfo:
     page_number: int  # 1-indexed
     width: float
     height: float
+    page_type: str = "typed"  # "typed" | "image" | "blank"
     spans: list[SpanInfo] = field(default_factory=list)
 
 
@@ -57,11 +58,13 @@ def _extract_from_doc(doc: fitz.Document, source_name: str) -> dict:
     for page_index in range(doc.page_count):
         page = doc[page_index]
         page_spans: list[dict] = []
+        image_block_count = 0
 
         blocks = page.get_text("dict")["blocks"]
         for block in blocks:
-            # type 1 = image block, skip it
-            if block["type"] != 0:
+            if block["type"] == 1:
+                # image block — count it but don't extract text
+                image_block_count += 1
                 continue
             for line in block["lines"]:
                 for span in line["spans"]:
@@ -101,23 +104,41 @@ def _extract_from_doc(doc: fitz.Document, source_name: str) -> dict:
                         )
                     )
 
+        # Classify page type:
+        #   "blank"  — no text spans and no image blocks
+        #   "image"  — has image block(s) and very few text spans (likely scanned)
+        #   "typed"  — has enough text spans to be a digital text page
+        text_span_count = len(page_spans)
+        if text_span_count == 0 and image_block_count == 0:
+            page_type = "blank"
+        elif image_block_count > 0 and text_span_count < 5:
+            # Full-page image with at most a few header/footer labels
+            page_type = "image"
+        else:
+            page_type = "typed"
+
         pages.append(
             asdict(
                 PageInfo(
                     page_number=page_index + 1,
                     width=page.rect.width,
                     height=page.rect.height,
+                    page_type=page_type,
                     spans=[],  # will be replaced below
                 )
             )
         )
         pages[-1]["spans"] = page_spans
 
-    # Detect scanned PDFs: check if average spans per page is very low
-    # If total spans is very small OR average spans per page < 1.5, likely scanned
-    # (accounts for PDFs with page headers/footers but mostly image content)
-    avg_spans_per_page = total_spans / doc.page_count if doc.page_count > 0 else 0
-    is_scanned = total_spans < 10 or avg_spans_per_page < 1.5
+    # Derive is_scanned from page types.
+    # A document is considered scanned when the majority of its non-blank pages
+    # are image pages (i.e. no extractable text, full-page rasters).
+    non_blank = [p for p in pages if p["page_type"] != "blank"]
+    image_pages = [p for p in non_blank if p["page_type"] == "image"]
+    if not non_blank:
+        is_scanned = False
+    else:
+        is_scanned = len(image_pages) / len(non_blank) >= 0.5
 
     return {
         "source_file": source_name,

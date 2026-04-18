@@ -87,11 +87,13 @@ def test_get_all_encoding_types_includes_unknown():
 
 
 def test_scanned_heuristic_empty_doc():
-    """A PDF with no text should be flagged as scanned."""
+    """A PDF with no text and no image blocks: blank page, not scanned."""
     doc = make_empty_doc()
     result = _extract_from_doc(doc, "test.pdf")
-    assert result["is_scanned"] is True
+    # Blank page (no text, no image blocks) → page_type "blank", is_scanned False.
+    assert result["is_scanned"] is False
     assert result["total_spans"] == 0
+    assert result["pages"][0]["page_type"] == "blank"
 
 
 def test_inspect_returns_correct_page_count():
@@ -216,14 +218,14 @@ def test_pdf_to_markdown_scanned_ocr_disabled():
 
 
 def test_cli_no_ocr_flag():
-    """--no-ocr flag is accepted by CLI."""
-    # This is a smoke test — just verify the flag parses
+    """--no-ocr and --include-images flags are accepted by the markdown CLI."""
     import subprocess
+    import sys
 
     result = subprocess.run(
-        ["python", "-m", "mmpdfkit.markdown", "--help"],
+        [sys.executable, "-m", "mmpdfkit.markdown", "--help"],
         capture_output=True,
         text=True,
-        cwd="/home/kaungsithu/projects/mmpdfkit",
     )
     assert "--no-ocr" in result.stdout
+    assert "--include-images" in result.stdout
