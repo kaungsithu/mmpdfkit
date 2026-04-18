@@ -147,7 +147,8 @@ def install_ocr(args: argparse.Namespace) -> None:
         print(f"  Required packages: {', '.join(_OCR_PACKAGES)}")
         print()
         print("Install with:")
-        print("  pip install mmpdfkit[ocr]")
+        print('  uv tool install "mmpdfkit[ocr]"   # recommended')
+        print('  pip install "mmpdfkit[ocr]"')
         print()
 
     if deps_ok and not model_ok:
@@ -184,6 +185,7 @@ def install_ocr(args: argparse.Namespace) -> None:
 
     print("OCR is ready. You can now convert scanned PDFs:")
     print("  mmpdfkit your_file.pdf")
+    print("  uvx \"mmpdfkit[ocr]\" your_file.pdf   # one-shot, no install needed")
 
 
 # ---------------------------------------------------------------------------
