@@ -29,15 +29,15 @@ def test_extract_and_ocr_disabled():
         temp_path.unlink()
 
 
-def test_extract_and_ocr_missing_pytesseract(monkeypatch):
-    """extract_and_ocr raises ImportError if pytesseract is not installed."""
+def test_extract_and_ocr_missing_onnxruntime(monkeypatch):
+    """extract_and_ocr raises ImportError if onnxruntime is not installed."""
     import builtins
 
     real_import = builtins.__import__
 
     def mock_import(name, *args, **kwargs):
-        if name == "pytesseract":
-            raise ImportError("No module named 'pytesseract'")
+        if name == "numpy":
+            raise ImportError("No module named 'numpy'")
         return real_import(name, *args, **kwargs)
 
     pdf_bytes = make_blank_pdf_bytes()
@@ -48,15 +48,15 @@ def test_extract_and_ocr_missing_pytesseract(monkeypatch):
 
     try:
         monkeypatch.setattr(builtins, "__import__", mock_import)
-        with pytest.raises(ImportError, match="pytesseract"):
+        with pytest.raises(ImportError, match="pip install mmpdfkit"):
             extract_and_ocr(temp_path, enable_ocr=True)
     finally:
         temp_path.unlink()
 
 
 def test_extract_and_ocr_returns_spans():
-    """extract_and_ocr returns list of span dicts (requires tesseract installed)."""
-    pytest.importorskip("pytesseract")
+    """extract_and_ocr returns list of span dicts (requires onnxruntime installed)."""
+    pytest.importorskip("onnxruntime")
 
     pdf_bytes = make_blank_pdf_bytes()
 

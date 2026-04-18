@@ -139,6 +139,46 @@ def _run_ocr_on_crop(crop_gray, session) -> str:
 # Public API
 # ---------------------------------------------------------------------------
 
+def ocr_page_spans(page_gray, page_width: float, page_height: float) -> list[dict]:
+    """
+    Run OCR on a single grayscale page image (already rendered, uint8 numpy array).
+
+    Args:
+        page_gray: Grayscale page image (H, W) uint8.
+        page_width: PDF page width in points (used for bbox x1).
+        page_height: PDF page height in points (unused but kept for symmetry).
+
+    Returns:
+        List of span dicts matching pdf_inspector output format.
+    """
+    import numpy as np
+
+    from mmpdfkit.line_detector import extract_line_images
+
+    # page_gray may have been rendered at 2× — scale back to PDF coords
+    scale = page_width / page_gray.shape[1]
+
+    session = _get_session()
+    line_crops = extract_line_images(page_gray)
+    spans: list[dict] = []
+
+    for y0, y1, crop in line_crops:
+        text = _run_ocr_on_crop(crop, session).strip()
+        if not text:
+            continue
+        spans.append({
+            "text": text,
+            "font_name": "ocr-crnn",
+            "font_encoding": "unicode",
+            "font_size": 12.0,
+            "is_bold": False,
+            "is_italic": False,
+            "bbox": [0.0, y0 * scale, page_width, y1 * scale],
+        })
+
+    return spans
+
+
 def extract_and_ocr(
     pdf_path: Path,
     enable_ocr: bool = True,
@@ -169,9 +209,7 @@ def extract_and_ocr(
         raise FileNotFoundError(f"PDF not found: {pdf_path}")
 
     try:
-        import cv2
-        import numpy as np
-        from PIL import Image
+        import numpy as np  # noqa: F401 — triggers ImportError early if missing
     except ImportError as e:
         raise ImportError(
             f"Missing dependency for OCR ({e}). "
@@ -180,39 +218,17 @@ def extract_and_ocr(
 
     import fitz
 
-    from mmpdfkit.line_detector import extract_line_images
-
-    session = _get_session()
     doc = fitz.open(str(pdf_path))
     pages_spans: list[list[dict[str, Any]]] = []
 
     try:
-        for page_num, page in enumerate(doc):
+        for page in doc:
             # Render at 2x resolution for better OCR accuracy
             pix = page.get_pixmap(matrix=fitz.Matrix(2, 2), colorspace=fitz.csGRAY)
             page_gray = np.frombuffer(pix.samples, dtype=np.uint8).reshape(
                 pix.height, pix.width
             )
-            scale = 0.5  # map image coords back to PDF coords
-
-            line_crops = extract_line_images(page_gray)
-            page_spans: list[dict[str, Any]] = []
-
-            for y0, y1, crop in line_crops:
-                text = _run_ocr_on_crop(crop, session).strip()
-                if not text:
-                    continue
-                page_spans.append({
-                    "text": text,
-                    "font_name": "ocr-crnn",
-                    "font_encoding": "unicode",
-                    "font_size": 12.0,
-                    "is_bold": False,
-                    "is_italic": False,
-                    "bbox": [0.0, y0 * scale, page.rect.width, y1 * scale],
-                })
-
-            pages_spans.append(page_spans)
+            pages_spans.append(ocr_page_spans(page_gray, page.rect.width, page.rect.height))
     finally:
         doc.close()
 

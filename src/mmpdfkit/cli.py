@@ -1,9 +1,6 @@
 """Command-line interface for mmpdfkit."""
 
 import argparse
-import platform
-import shutil
-import subprocess
 import sys
 from pathlib import Path
 
@@ -75,6 +72,11 @@ def _add_convert_args(parser: argparse.ArgumentParser) -> None:
         "--output-dir", default=None, help="Output directory (default: same as input)"
     )
     parser.add_argument("--no-ocr", action="store_true", help="Disable OCR for scanned documents")
+    parser.add_argument(
+        "--include-images",
+        action="store_true",
+        help="Save image-only pages as PNG and embed in Markdown",
+    )
 
 
 def _add_inspect_args(parser: argparse.ArgumentParser) -> None:
@@ -108,203 +110,81 @@ def _resolve_output_dir(output_dir_arg: str | None) -> Path | None:
 # OCR install helpers
 # ---------------------------------------------------------------------------
 
+_OCR_PACKAGES = ["onnxruntime>=1.17.0", "pillow>=10.0.0", "opencv-python-headless>=4.8.0"]
 
-def _detect_linux_distro() -> str:
-    """Return 'debian', 'arch', 'fedora', or 'unknown'."""
+
+def _ocr_deps_installed() -> bool:
+    """Return True if all OCR Python packages are importable."""
     try:
-        text = Path("/etc/os-release").read_text()
-        if any(x in text for x in ("debian", "ubuntu", "mint", "pop")):
-            return "debian"
-        if "arch" in text or "manjaro" in text:
-            return "arch"
-        if any(x in text for x in ("fedora", "rhel", "centos", "rocky")):
-            return "fedora"
-    except FileNotFoundError:
-        pass
-    # Fallback: check for package managers
-    if shutil.which("apt"):
-        return "debian"
-    if shutil.which("pacman"):
-        return "arch"
-    if shutil.which("dnf") or shutil.which("yum"):
-        return "fedora"
-    return "unknown"
+        import cv2  # noqa: F401
+        import onnxruntime  # noqa: F401
+        from PIL import Image  # noqa: F401
 
-
-def _get_install_steps() -> list[dict]:
-    """
-    Return a list of install steps for the current platform.
-
-    Each step is {"desc": str, "cmd": list[str], "requires_elevation": bool}.
-    """
-    os_name = platform.system()
-
-    if os_name == "Darwin":
-        has_brew = bool(shutil.which("brew"))
-        if not has_brew:
-            return [
-                {
-                    "desc": "Install Homebrew (package manager for macOS)",
-                    "cmd": [
-                        "/bin/bash",
-                        "-c",
-                        "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)",
-                    ],
-                    "requires_elevation": False,
-                    "note": "Visit https://brew.sh if you prefer to install manually",
-                },
-                {
-                    "desc": "Install Tesseract with Myanmar language data",
-                    "cmd": ["brew", "install", "tesseract", "tesseract-lang"],
-                    "requires_elevation": False,
-                },
-            ]
-        return [
-            {
-                "desc": "Install Tesseract with Myanmar language data",
-                "cmd": ["brew", "install", "tesseract", "tesseract-lang"],
-                "requires_elevation": False,
-            }
-        ]
-
-    if os_name == "Windows":
-        has_winget = bool(shutil.which("winget"))
-        if has_winget:
-            return [
-                {
-                    "desc": "Install Tesseract (UB Mannheim build with all languages)",
-                    "cmd": ["winget", "install", "UB-Mannheim.TesseractOCR"],
-                    "requires_elevation": True,
-                    "note": "Run in an Administrator terminal, or download manually from "
-                    "https://github.com/UB-Mannheim/tesseract/wiki",
-                },
-            ]
-        return [
-            {
-                "desc": "Download Tesseract installer",
-                "cmd": [],
-                "requires_elevation": False,
-                "note": "winget not found. Download from: "
-                "https://github.com/UB-Mannheim/tesseract/wiki\n"
-                "  During install, check 'Additional language data' → Myanmar",
-            }
-        ]
-
-    # Linux
-    distro = _detect_linux_distro()
-
-    if distro == "debian":
-        return [
-            {
-                "desc": "Install Tesseract with Myanmar language pack",
-                "cmd": ["sudo", "apt", "install", "-y", "tesseract-ocr", "tesseract-ocr-mya"],
-                "requires_elevation": True,
-            }
-        ]
-    if distro == "arch":
-        return [
-            {
-                "desc": "Install Tesseract with Myanmar language data",
-                "cmd": ["sudo", "pacman", "-S", "--noconfirm", "tesseract", "tesseract-data-mya"],
-                "requires_elevation": True,
-            }
-        ]
-    if distro == "fedora":
-        return [
-            {
-                "desc": "Install Tesseract",
-                "cmd": ["sudo", "dnf", "install", "-y", "tesseract"],
-                "requires_elevation": True,
-            },
-            {
-                "desc": "Install Myanmar language pack",
-                "cmd": ["sudo", "dnf", "install", "-y", "tesseract-langpack-mya"],
-                "requires_elevation": True,
-            },
-        ]
-
-    # Unknown Linux
-    return [
-        {
-            "desc": "Install Tesseract",
-            "cmd": [],
-            "requires_elevation": False,
-            "note": "Could not detect your package manager. See: "
-            "https://tesseract-ocr.github.io/tessdoc/Installation.html\n"
-            "  Ensure the Myanmar ('mya') language pack is included.",
-        }
-    ]
-
-
-def _ocr_already_installed() -> bool:
-    """Return True if tesseract is installed with Myanmar support."""
-    if not shutil.which("tesseract"):
+        return True
+    except ImportError:
         return False
-    try:
-        result = subprocess.run(
-            ["tesseract", "--list-langs"],
-            capture_output=True,
-            text=True,
-        )
-        return "mya" in result.stdout + result.stderr
-    except Exception:
-        return False
+
+
+def _model_cached() -> bool:
+    """Return True if the CRNN ONNX model has already been downloaded."""
+    from mmpdfkit.ocr import _model_path
+
+    return _model_path().exists()
 
 
 def install_ocr(args: argparse.Namespace) -> None:
-    """Show or run OCR installation instructions."""
-    if _ocr_already_installed():
-        print("✓ OCR (Tesseract + Myanmar) is already installed and ready.")
+    """Show OCR status, or install Python OCR dependencies and pre-download the model."""
+    import subprocess
+
+    deps_ok = _ocr_deps_installed()
+    model_ok = _model_cached()
+
+    if deps_ok and model_ok:
+        print("OCR is ready: Python dependencies installed and model cached.")
         return
 
-    steps = _get_install_steps()
+    if not deps_ok:
+        print("OCR Python dependencies are not installed.")
+        print(f"  Required packages: {', '.join(_OCR_PACKAGES)}")
+        print()
+        print("Install with:")
+        print("  pip install mmpdfkit[ocr]")
+        print()
 
-    print("To enable OCR for scanned Burmese PDFs, install Tesseract:\n")
-
-    runnable_steps = []
-    for i, step in enumerate(steps, 1):
-        print(f"  Step {i}: {step['desc']}")
-        if step["cmd"]:
-            print(f"    $ {' '.join(step['cmd'])}")
-            if step.get("requires_elevation") and platform.system() != "Windows":
-                print("    (requires sudo / administrator privileges)")
-            runnable_steps.append(step)
-        if step.get("note"):
-            for line in step["note"].split("\n"):
-                print(f"    {line}")
+    if deps_ok and not model_ok:
+        print("OCR model not yet downloaded (will be fetched automatically on first use).")
         print()
 
     if not args.run:
-        if runnable_steps:
-            print("Run with --run to execute these commands automatically.")
+        print("Run with --run to install dependencies and pre-download the model.")
         return
 
     # --- Execute mode ---
-    if not runnable_steps:
-        print("No commands to run automatically for your platform. See instructions above.")
-        return
-
-    print("Running install commands...\n")
-    for step in runnable_steps:
-        print(f"→ {step['desc']}")
-        print(f"  $ {' '.join(step['cmd'])}\n")
+    if not deps_ok:
+        print("Installing OCR dependencies...")
         try:
-            subprocess.run(step["cmd"], check=True)
-            print("  ✓ Done\n")
+            subprocess.run(
+                [sys.executable, "-m", "pip", "install", "mmpdfkit[ocr]"],
+                check=True,
+            )
+            print("Dependencies installed.")
         except subprocess.CalledProcessError as e:
-            print(f"  ✗ Failed (exit code {e.returncode})", file=sys.stderr)
-            print("  Try running the command manually.", file=sys.stderr)
-            sys.exit(1)
-        except FileNotFoundError:
-            print(f"  ✗ Command not found: {step['cmd'][0]}", file=sys.stderr)
+            print(f"pip install failed (exit code {e.returncode})", file=sys.stderr)
             sys.exit(1)
 
-    if _ocr_already_installed():
-        print("✓ OCR installed successfully. You can now convert scanned PDFs:")
-        print("  mmpdfkit your_file.pdf")
-    else:
-        print("Installation may require a shell restart or PATH update.")
-        print("Verify with: tesseract --list-langs")
+    if not model_ok:
+        print("Pre-downloading CRNN OCR model...")
+        try:
+            from mmpdfkit.ocr import _ensure_model
+
+            _ensure_model()
+            print("Model downloaded and cached.")
+        except RuntimeError as e:
+            print(f"Model download failed: {e}", file=sys.stderr)
+            sys.exit(1)
+
+    print("OCR is ready. You can now convert scanned PDFs:")
+    print("  mmpdfkit your_file.pdf")
 
 
 # ---------------------------------------------------------------------------
@@ -321,16 +201,24 @@ def convert_pdfs(args: argparse.Namespace) -> None:
         print(f"No PDF files found in {input_path}")
         return
 
-    output_dir = _resolve_output_dir(args.output_dir)
-    if output_dir:
-        output_dir.mkdir(parents=True, exist_ok=True)
+    base_out = _resolve_output_dir(args.output_dir) or input_path.parent
+    include_images = getattr(args, "include_images", False)
 
     for pdf in pdfs:
         print(f"Converting {pdf.name} ...")
 
         try:
-            md = pdf_to_markdown(pdf, enable_ocr=not args.no_ocr)
-            out = output_dir / (pdf.stem + ".md") if output_dir else pdf.parent / (pdf.stem + ".md")
+            # Per-PDF sub-directory: {base_out}/{pdf_stem}/{pdf_stem}.md
+            pdf_out_dir = base_out / pdf.stem
+            pdf_out_dir.mkdir(parents=True, exist_ok=True)
+
+            md = pdf_to_markdown(
+                pdf,
+                enable_ocr=not args.no_ocr,
+                output_dir=pdf_out_dir,
+                include_images=include_images,
+            )
+            out = pdf_out_dir / (pdf.stem + ".md")
             save_markdown(md, out)
         except Exception as e:
             print(f"Error converting {pdf.name}: {e}", file=sys.stderr)

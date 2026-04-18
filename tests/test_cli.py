@@ -8,32 +8,35 @@ from mmpdfkit.cli import convert_pdfs, inspect_pdfs
 
 
 def test_convert_single_pdf_default_output():
-    """Single PDF converts to same directory as input."""
+    """Single PDF converts into a per-PDF sub-directory next to the input file."""
     pdf_path = Path("test_convert.pdf")
 
     args = MagicMock()
     args.path = pdf_path
     args.output_dir = None
     args.no_ocr = False
+    args.include_images = False
 
     with patch("mmpdfkit.cli._collect_pdfs") as mock_collect:
         with patch("mmpdfkit.cli.pdf_to_markdown") as mock_convert:
             with patch("mmpdfkit.cli.save_markdown") as mock_save:
-                mock_collect.return_value = [pdf_path]
-                mock_convert.return_value = "# Test Markdown"
+                with patch.object(Path, "mkdir"):
+                    mock_collect.return_value = [pdf_path]
+                    mock_convert.return_value = "# Test Markdown"
 
-                convert_pdfs(args)
+                    convert_pdfs(args)
 
-                # Verify pdf_to_markdown was called with correct args
-                mock_convert.assert_called_once()
-                call_args = mock_convert.call_args
-                assert call_args[0][0] == pdf_path
-                assert call_args[1]["enable_ocr"] is True
+                    # Verify pdf_to_markdown was called with correct args
+                    mock_convert.assert_called_once()
+                    call_args = mock_convert.call_args
+                    assert call_args[0][0] == pdf_path
+                    assert call_args[1]["enable_ocr"] is True
 
-                # Verify output path is next to PDF
-                mock_save.assert_called_once()
-                output_call = mock_save.call_args
-                assert output_call[0][1] == pdf_path.parent / "test_convert.md"
+                    # Output is {parent}/{stem}/{stem}.md
+                    mock_save.assert_called_once()
+                    output_call = mock_save.call_args
+                    expected = pdf_path.parent / "test_convert" / "test_convert.md"
+                    assert output_call[0][1] == expected
 
 
 def test_convert_with_output_dir():
@@ -45,6 +48,7 @@ def test_convert_with_output_dir():
     args.path = pdf_path
     args.output_dir = str(output_dir)
     args.no_ocr = False
+    args.include_images = False
 
     with patch("mmpdfkit.cli._collect_pdfs") as mock_collect:
         with patch("mmpdfkit.cli.pdf_to_markdown") as mock_convert:
@@ -55,10 +59,11 @@ def test_convert_with_output_dir():
 
                     convert_pdfs(args)
 
-                    # Output should be in custom dir
+                    # Output should be in {output_dir}/{stem}/{stem}.md
                     mock_save.assert_called_once()
                     output_call = mock_save.call_args
-                    assert output_call[0][1] == output_dir / "test_convert_outdir.md"
+                    expected = output_dir / "test_convert_outdir" / "test_convert_outdir.md"
+                    assert output_call[0][1] == expected
 
 
 def test_convert_no_ocr_flag():
@@ -69,18 +74,20 @@ def test_convert_no_ocr_flag():
     args.path = pdf_path
     args.output_dir = None
     args.no_ocr = True
+    args.include_images = False
 
     with patch("mmpdfkit.cli._collect_pdfs") as mock_collect:
         with patch("mmpdfkit.cli.pdf_to_markdown") as mock_convert:
             with patch("mmpdfkit.cli.save_markdown"):
-                mock_collect.return_value = [pdf_path]
-                mock_convert.return_value = ""
+                with patch.object(Path, "mkdir"):
+                    mock_collect.return_value = [pdf_path]
+                    mock_convert.return_value = ""
 
-                convert_pdfs(args)
+                    convert_pdfs(args)
 
-                # enable_ocr should be False
-                call_args = mock_convert.call_args
-                assert call_args[1]["enable_ocr"] is False
+                    # enable_ocr should be False
+                    call_args = mock_convert.call_args
+                    assert call_args[1]["enable_ocr"] is False
 
 
 def test_inspect_single_pdf_default_output():
@@ -133,18 +140,20 @@ def test_convert_directory_finds_all_pdfs():
     args.path = Path("/tmp/test")
     args.output_dir = None
     args.no_ocr = False
+    args.include_images = False
 
     with patch("mmpdfkit.cli._collect_pdfs") as mock_collect:
         with patch("mmpdfkit.cli.pdf_to_markdown") as mock_convert:
             with patch("mmpdfkit.cli.save_markdown") as mock_save:
-                mock_collect.return_value = [pdf1, pdf2]
-                mock_convert.return_value = "# Test"
+                with patch.object(Path, "mkdir"):
+                    mock_collect.return_value = [pdf1, pdf2]
+                    mock_convert.return_value = "# Test"
 
-                convert_pdfs(args)
+                    convert_pdfs(args)
 
-                # Should be called twice (once per PDF)
-                assert mock_convert.call_count == 2
-                assert mock_save.call_count == 2
+                    # Should be called twice (once per PDF)
+                    assert mock_convert.call_count == 2
+                    assert mock_save.call_count == 2
 
 
 def test_no_pdfs_found():
@@ -157,6 +166,7 @@ def test_no_pdfs_found():
         args.path = empty_dir
         args.output_dir = None
         args.no_ocr = False
+        args.include_images = False
 
         with patch("mmpdfkit.cli.pdf_to_markdown") as mock_convert:
             with patch("mmpdfkit.cli.save_markdown"):
