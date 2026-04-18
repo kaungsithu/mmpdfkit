@@ -37,10 +37,9 @@ NUM_CLASSES: int = len(_VOCAB)           # = 272
 # ---------------------------------------------------------------------------
 # Model download
 # ---------------------------------------------------------------------------
-# Update this URL after uploading the trained model to HuggingFace:
-#   https://huggingface.co/kaungsithu/mmpdfkit-ocr
+# Model hosted at: https://huggingface.co/ksithu/myanmar-crnn-ocr
 _MODEL_URL = (
-    "https://huggingface.co/kaungsithu/mmpdfkit-ocr/resolve/main/mmpdfkit_crnn_int8.onnx"
+    "https://huggingface.co/ksithu/myanmar-crnn-ocr/resolve/main/mmpdfkit_crnn_int8.onnx"
 )
 _CACHE_DIR = Path.home() / ".cache" / "mmpdfkit"
 _MODEL_FILENAME = "mmpdfkit_crnn_int8.onnx"
